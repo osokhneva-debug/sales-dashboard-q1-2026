@@ -1,7 +1,7 @@
 import csv,json,re
 from collections import defaultdict
 
-SVOD="svod.csv"; TEMPLATE="index.html"; OUT="index_new.html"
+SVOD="svod.csv"; TEMPLATE="template.html"; OUT="index_new.html"
 
 CANON={
  "Eduson Academy":"Академия Эдюсон",
@@ -97,6 +97,8 @@ out=s
 for nm,obj in (("DATA",DATA),("DRILLDOWN",DRILL),("PARTNERS",PART)):
     out=replace_const(out,nm,obj)
 out=out.replace("const DATA = ","const TAGSTATS = "+json.dumps(TAGSTATS,ensure_ascii=False)+";\nconst DATA = ",1)
+# dynamic month-range labels (title/subtitle) so the header updates each month
+out=out.replace("Январь–Июнь 2026",MONTHS[0]+"–"+MONTHS[-1]+" 2026").replace("Январь – Июнь 2026",MONTHS[0]+" – "+MONTHS[-1]+" 2026")
 open(OUT,"w",encoding="utf-8").write(out)
 
 print("WROTE",OUT,len(out),"bytes | months:",MONTHS)
