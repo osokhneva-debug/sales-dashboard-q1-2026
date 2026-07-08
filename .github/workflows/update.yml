@@ -28,9 +28,9 @@ jobs:
           set -e
           curl -sL "https://docs.google.com/spreadsheets/d/1rW2eTi6WAfNMsM2w_40DS0cMo58SwGtDvWU8vvZCqe8/export?format=csv&gid=0" -o svod.csv
           curl -sL "https://docs.google.com/spreadsheets/d/1SWX2-_K6q2mbldHgXwO-HjMKUD037mjwVmlMXzIy7dw/export?format=csv&gid=246856888" -o fakt.csv
-          # sanity: must be CSV, not an HTML login/redirect page
-          head -c 6 svod.csv | grep -q "Месяц" || (echo "svod.csv is not CSV (check sheet sharing)"; exit 1)
-          head -c 2 fakt.csv | grep -q "," || (echo "fakt.csv is not CSV"; exit 1)
+          # sanity: must be CSV, not an HTML login/redirect page (check header line, not byte count)
+          head -1 svod.csv | grep -q "Месяц" || (echo "svod.csv is not CSV — got:"; head -c 200 svod.csv; exit 1)
+          head -1 fakt.csv | grep -q "2025" || (echo "fakt.csv is not CSV — got:"; head -c 200 fakt.csv; exit 1)
           echo "svod rows: $(wc -l < svod.csv) | fakt rows: $(wc -l < fakt.csv)"
 
       - name: Build dashboard
