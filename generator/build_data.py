@@ -89,7 +89,8 @@ DATA = {"months": MONTHS,
  "skills": {me: {n: {mm: R(v[me]) for mm, v in mv.items()} for n, mv in skill.items()} for me in ("rev", "cnt")}}
 
 DRILL = {}
-for d in set(list(dd_prog) + list(dd_part)):
+# dict.fromkeys, not set(): keeps CSV order and makes output deterministic across runs
+for d in dict.fromkeys(list(dd_prog) + list(dd_part)):
     prog_schools = {}
     for prog, schm in dd_prog_sch.get(d, {}).items():
         sl = sorted(schm.items(), key=lambda x: -x[1])
