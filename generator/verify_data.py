@@ -26,8 +26,9 @@ errors, warnings = [], []
 # months sane and aligned
 if not DATA["months"]: errors.append("DATA.months is empty")
 if not STREAMS["months"]: errors.append("STREAMS.months is empty")
+# hard error since 03.08.2026: a silent mismatch nearly published plan stubs as fact
 if DATA["months"] != STREAMS["months"]:
-    warnings.append(f"month sets differ: svod={DATA['months']} vs fakt={STREAMS['months']}")
+    errors.append(f"month sets differ: svod={DATA['months']} vs fakt={STREAMS['months']}")
 
 # cross-source: svod CPA revenue vs fakt Revenue CPA, per month
 for m in DATA["months"]:

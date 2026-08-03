@@ -135,7 +135,12 @@ for l, k in LAB.items():
         m = MEN.get(mon[i].strip().upper()); v = fnum(r[i]) if r and i < len(r) else None
         if m and v is not None: s[m] = round(v, 2)
     STREAMS[k] = s
-STREAMS["months"] = [m for m in ORDER if m in STREAMS["total"]]
+# A month is real only if at least one revenue stream has data for it. A lone
+# "Total Revenue EdTech" value is a plan stub (incident 03.08.2026: 20.6M copied
+# into Jul-Dec as plan), not a fact — never let it become the "latest month".
+STREAMS["months"] = [m for m in ORDER if any(m in STREAMS[k] for k in ("cpa", "cpc", "fix", "adv"))]
+for k in LAB.values():
+    STREAMS[k] = {m: v for m, v in STREAMS[k].items() if m in STREAMS["months"]}
 
 # ---------- insights.json → INSIGHTS_LOG ----------
 INSIGHTS_LOG = json.load(open(INSIGHTS, encoding="utf-8"))
