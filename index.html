@@ -1322,8 +1322,8 @@ function renderStreams(){
   const kpis=[{l:'Total EdTech · '+lm,v:total,c:'#0f172a'}].concat(STREAM_DEFS.map(d=>({l:d[1]+' · '+lm,v:STREAMS[d[0]][lm]||0,c:d[2]})));
   document.getElementById('streamsKpi').innerHTML=kpis.map(k=>`<div class="kpi-card"><div style="font-size:13px;color:#64748b;margin-bottom:6px">${k.l}</div><div style="font-size:24px;font-weight:700;color:${k.c}">${fmtR(k.v)}</div></div>`).join('');
   const QDEF=[['Q1',['Январь','Февраль','Март']],['Q2',['Апрель','Май','Июнь']],['Q3',['Июль','Август','Сентябрь']],['Q4',['Октябрь','Ноябрь','Декабрь']]];
-  const qv=QDEF.map(([q,ms])=>({q,v:ms.reduce((s,m)=>s+(STREAMS.total[m]||0),0),has:ms.some(m=>M.includes(m))})).filter(x=>x.has);
-  let qh=qv.map((x,i)=>{const p=i>0?qv[i-1].v:null;const qoq=p?`<div style="font-size:12px;margin-top:4px;color:${x.v>=p?'#10b981':'#ef4444'}">${x.v>=p?'▲ +':'▼ '}${((x.v/p-1)*100).toFixed(1)}% к пред. кв.</div>`:'<div style="font-size:12px;margin-top:4px;color:#94a3b8">старт</div>';return `<div class="kpi-card"><div style="font-size:13px;color:#64748b">${x.q} · выручка</div><div style="font-size:22px;font-weight:700">${fmtR(x.v)}</div>${qoq}</div>`;}).join('');
+  const qv=QDEF.map(([q,ms])=>({q,v:ms.reduce((s,m)=>s+(STREAMS.total[m]||0),0),cnt:ms.filter(m=>M.includes(m)).length})).filter(x=>x.cnt>0);
+  let qh=qv.map((x,i)=>{const p=(i>0&&x.cnt===3&&qv[i-1].cnt===3)?qv[i-1].v:null;const qoq=(i>0&&x.cnt<3)?'<div style="font-size:12px;margin-top:4px;color:#94a3b8">неполный квартал ('+x.cnt+' мес)</div>':p?`<div style="font-size:12px;margin-top:4px;color:${x.v>=p?'#10b981':'#ef4444'}">${x.v>=p?'▲ +':'▼ '}${((x.v/p-1)*100).toFixed(1)}% к пред. кв.</div>`:'<div style="font-size:12px;margin-top:4px;color:#94a3b8">старт</div>';return `<div class="kpi-card"><div style="font-size:13px;color:#64748b">${x.q}${x.cnt<3?" ("+x.cnt+" мес)":""} · выручка</div><div style="font-size:22px;font-weight:700">${fmtR(x.v)}</div>${qoq}</div>`;}).join('');
   qh+=`<div class="kpi-card" style="background:#0f172a"><div style="font-size:13px;color:#cbd5e1">Итого выручка (весь период)</div><div style="font-size:22px;font-weight:700;color:#fff">${fmtR(grand)}</div><div style="font-size:12px;margin-top:4px;color:#94a3b8">${M[0]}–${lm}</div></div>`;
   document.getElementById('streamsQuarters').innerHTML=qh;
   if(stStack)stStack.destroy();
@@ -1362,7 +1362,7 @@ function downloadCSV(tableId,filename){
 
 // ===== Drilldown redesign: MoM abs + QoQ %, Total direction, insights =====
 function buildEntityRows(entityDict){
-  const n=MONTHS.length, qOf=i=>Math.floor(i/3), lastQ=qOf(n-1), prevQ=lastQ-1;
+  const n=MONTHS.length, qOf=i=>Math.floor(i/3), lastQ=Math.floor(n/3)-1, prevQ=lastQ-1; // last COMPLETE quarter (partial excluded, 05.08.2026)
   return Object.keys(entityDict).map(k=>{
     const rec=entityDict[k];
     const byMonth=MONTHS.map(m=>rec[m][ddMetric]);
@@ -1386,7 +1386,7 @@ function renderDrilldownTable(tableId, rows, unit, labelCol){
   const srt=rows.slice().sort((a,b)=>{const va=val(a,sort.col),vb=val(b,sort.col); if(typeof va==='string')return sort.dir==='asc'?va.localeCompare(vb):vb.localeCompare(va); return sort.dir==='asc'?va-vb:vb-va;});
   const lastM=MONTHS[MONTHS.length-1], prevM=MONTHS[MONTHS.length-2]||'';
   const th=(col,lbl,cls='')=>{const sc=String(sort.col)===String(col)?(sort.dir==='asc'?'sort-asc':'sort-desc'):'';return `<th data-sort="${col}" class="${sc} ${cls}" style="cursor:pointer;user-select:none">${lbl}</th>`;};
-  let html=`<thead><tr><th>#</th>${th('name',labelCol)}${MONTHS.map((m,i)=>th(i,m,'num')).join('')}${th('total','Итого','num')}${th('drop','Δ '+lastM+'−'+prevM,'num')}${th('qoq','Δ QoQ %','num')}${th('status','Статус')}</tr></thead><tbody>`;
+  let html=`<thead><tr><th>#</th>${th('name',labelCol)}${MONTHS.map((m,i)=>th(i,m,'num')).join('')}${th('total','Итого','num')}${th('drop','Δ '+lastM+'−'+prevM,'num')}${th('qoq','Δ Q'+Math.floor(MONTHS.length/3)+'/Q'+(Math.floor(MONTHS.length/3)-1)+' %','num')}${th('status','Статус')}</tr></thead><tbody>`;
   srt.forEach((r,idx)=>{
     const rankCls=idx===0?'top1':idx===1?'top2':idx===2?'top3':'';
     const dcol=r.drop<0?'#991b1b':r.drop>0?'#065f46':'#64748b';
@@ -1440,7 +1440,7 @@ function rerenderDrilldown(){
   const nn=MONTHS.length;
   const fatal=programRows.map(r=>{const a=r.byMonth[nn-3]||0,m2=r.byMonth[nn-2]||0,j=r.byMonth[nn-1]||0,amAvg=(a+m2)/2;return {r,amAvg,j,dp:amAvg>0?(j-amAvg)/amAvg:0};}).filter(x=>x.amAvg>=50000&&x.j<=x.amAvg*0.4).sort((a,b)=>b.amAvg-a.amAvg).slice(0,12);
   const fatalHtml=fatal.length?`<div class="card grid-1" style="border-left:4px solid #ef4444;background:#fef2f2;margin-bottom:14px"><div style="font-weight:700;margin-bottom:6px">🔴 Курсы, обвалившиеся в ${lastM} — были сильны в ${MONTHS[nn-3]}–${MONTHS[nn-2]}, привязаны к школе</div><ul style="margin:0;padding-left:18px;line-height:1.65;color:#334155;font-size:14px">`+fatal.map(x=>`<li><b>${x.r.name.length>52?x.r.name.slice(0,52)+'…':x.r.name}</b>${x.r.school?' · 🏫 '+x.r.school:''} — ${MONTHS[nn-3]}–${MONTHS[nn-2]} ≈ ${fmt(x.amAvg)}/мес → ${lastM}: <b style="color:#dc2626">${fmt(x.j)}</b> (${(x.dp*100).toFixed(0)}%)</li>`).join('')+`</ul></div>`:'';
-  document.getElementById('ddSummary').innerHTML=fatalHtml+ins+`<div class="dd-summary"><div class="dd-summary-card"><div class="lbl">Выручка ${prevM}</div><div class="v">${fmt(prevSum)}</div></div><div class="dd-summary-card"><div class="lbl">Выручка ${lastM}</div><div class="v">${fmt(lastSum)}</div></div><div class="dd-summary-card ${mom<0?'alert':'success'}"><div class="lbl">Δ ${lastM} к ${prevM}</div><div class="v">${mom>=0?'+':''}${fmt(mom).replace(' ₽','')} ${unit}</div><div class="d ${mom<0?'down':'up'}">${momPct>=0?'+':''}${momPct.toFixed(1)}%</div></div><div class="dd-summary-card ${qoqPct<0?'alert':'success'}"><div class="lbl">Квартал к кварталу</div><div class="v">${qoqPct>=0?'+':''}${qoqPct.toFixed(1)}%</div><div class="d">Q2 vs Q1</div></div><div class="dd-summary-card ${killed.length?'alert':''}"><div class="lbl">Перестали в ${lastM}</div><div class="v">${killed.length} шт.</div><div class="d down">потеря ${fmt(killedLoss)}</div></div></div>`;
+  document.getElementById('ddSummary').innerHTML=fatalHtml+ins+`<div class="dd-summary"><div class="dd-summary-card"><div class="lbl">Выручка ${prevM}</div><div class="v">${fmt(prevSum)}</div></div><div class="dd-summary-card"><div class="lbl">Выручка ${lastM}</div><div class="v">${fmt(lastSum)}</div></div><div class="dd-summary-card ${mom<0?'alert':'success'}"><div class="lbl">Δ ${lastM} к ${prevM}</div><div class="v">${mom>=0?'+':''}${fmt(mom).replace(' ₽','')} ${unit}</div><div class="d ${mom<0?'down':'up'}">${momPct>=0?'+':''}${momPct.toFixed(1)}%</div></div><div class="dd-summary-card ${qoqPct<0?'alert':'success'}"><div class="lbl">Квартал к кварталу</div><div class="v">${qoqPct>=0?'+':''}${qoqPct.toFixed(1)}%</div><div class="d">Q${Math.floor(MONTHS.length/3)} vs Q${Math.floor(MONTHS.length/3)-1}</div></div><div class="dd-summary-card ${killed.length?'alert':''}"><div class="lbl">Перестали в ${lastM}</div><div class="v">${killed.length} шт.</div><div class="d down">потеря ${fmt(killedLoss)}</div></div></div>`;
   renderDrilldownTable('ddPartnerTable',partnerRows,unit,'Партнёр');
   renderDrilldownTable('ddProgramTable',programRows,unit,'Программа');
   const topPart=[...partnerRows].sort((a,b)=>Math.abs(b.drop)-Math.abs(a.drop)).slice(0,8);
@@ -1456,7 +1456,7 @@ function rerenderDrilldown(){
 
 // ===== Consistent MoM abs + QoQ % across all pivot/partner tables =====
 function buildPivotTable(tableId, dataDict, metricLabel){
-  const n=MONTHS.length, qOf=i=>Math.floor(i/3), lastQ=qOf(n-1), prevQ=lastQ-1;
+  const n=MONTHS.length, qOf=i=>Math.floor(i/3), lastQ=Math.floor(n/3)-1, prevQ=lastQ-1; // last COMPLETE quarter (partial excluded, 05.08.2026)
   return Object.keys(dataDict).map(k=>{
     const byMonth=MONTHS.map(m=>dataDict[k][m]||0);
     const total=byMonth.reduce((a,b)=>a+b,0);
@@ -1484,7 +1484,7 @@ function renderTable(tableId, rows, metricLabel, unit, opts){
   const minMax=MONTHS.map((m,i)=>{const vals=filtered.map(r=>r.byMonth[i]).filter(v=>v>0);return {min:vals.length?Math.min(...vals):0,max:vals.length?Math.max(...vals):1};});
   const fmt=unit==='₽'?fmtR:fmtN; const lastM=MONTHS[MONTHS.length-1], prevM=MONTHS[MONTHS.length-2]||'';
   const th=(col,lbl,cls='')=>{const sc=sort.col===col?(sort.dir==='asc'?'sort-asc':'sort-desc'):'';return `<th data-sort="${col}" class="${sc} ${cls}">${lbl}</th>`;};
-  let html=`<thead><tr><th>#</th>${th('name','Категория')}${MONTHS.map((m,i)=>th(i,m,'num')).join('')}${th('total','Итого','num')}${th('mom','Δ '+lastM+'−'+prevM,'num')}${th('qoq','Δ QoQ %','num')}<th>Тренд</th></tr></thead><tbody>`;
+  let html=`<thead><tr><th>#</th>${th('name','Категория')}${MONTHS.map((m,i)=>th(i,m,'num')).join('')}${th('total','Итого','num')}${th('mom','Δ '+lastM+'−'+prevM,'num')}${th('qoq','Δ Q'+Math.floor(MONTHS.length/3)+'/Q'+(Math.floor(MONTHS.length/3)-1)+' %','num')}<th>Тренд</th></tr></thead><tbody>`;
   filtered.forEach((r,idx)=>{
     const rankCls=idx===0?'top1':idx===1?'top2':idx===2?'top3':'';
     const dcol=r.momAbs<0?'#991b1b':r.momAbs>0?'#065f46':'#64748b';
@@ -1494,7 +1494,7 @@ function renderTable(tableId, rows, metricLabel, unit, opts){
   document.querySelectorAll(`#${tableId} th[data-sort]`).forEach(th=>{th.onclick=()=>{const col=th.dataset.sort;const cur=tableSort[tableId]||{col:'total',dir:'desc'};if(cur.col===col)cur.dir=cur.dir==='asc'?'desc':'asc';else{cur.col=col;cur.dir='desc';}tableSort[tableId]=cur;opts.rerender&&opts.rerender();};});
 }
 function buildPartnerRows(){
-  const n=MONTHS.length, qOf=i=>Math.floor(i/3), lastQ=qOf(n-1), prevQ=lastQ-1;
+  const n=MONTHS.length, qOf=i=>Math.floor(i/3), lastQ=Math.floor(n/3)-1, prevQ=lastQ-1; // last COMPLETE quarter (partial excluded, 05.08.2026)
   return Object.keys(PARTNERS).map(k=>{
     const rec=PARTNERS[k];
     const byMonth=MONTHS.map(m=>rec.months[m][partMetric]);
@@ -1519,7 +1519,7 @@ function renderPartnerTable(rows, unit){
   if(sort){srt.sort((a,b)=>{const va=val(a,sort.col),vb=val(b,sort.col); if(typeof va==='string')return sort.dir==='asc'?va.localeCompare(vb):vb.localeCompare(va); return sort.dir==='asc'?va-vb:vb-va;});}
   const maxAbs=Math.max(...srt.map(r=>Math.abs(r.drop)),1);
   const th=(col,lbl,cls='')=>{const sc=sort&&String(sort.col)===String(col)?(sort.dir==='asc'?'sort-asc':'sort-desc'):'';return `<th data-sort="${col}" class="${sc} ${cls}" style="cursor:pointer;user-select:none">${lbl}</th>`;};
-  let html=`<thead><tr><th>#</th>${th('name','Школа')}${MONTHS.map((m,i)=>th(i,m,'num')).join('')}${th('total','Итого','num')}${th('drop','Δ '+lastM+'−'+prevM,'num')}${th('qoq','Δ QoQ %','num')}${th('status','Статус')}<th>Топ-3 направления</th></tr></thead><tbody>`;
+  let html=`<thead><tr><th>#</th>${th('name','Школа')}${MONTHS.map((m,i)=>th(i,m,'num')).join('')}${th('total','Итого','num')}${th('drop','Δ '+lastM+'−'+prevM,'num')}${th('qoq','Δ Q'+Math.floor(MONTHS.length/3)+'/Q'+(Math.floor(MONTHS.length/3)-1)+' %','num')}${th('status','Статус')}<th>Топ-3 направления</th></tr></thead><tbody>`;
   srt.forEach((r,idx)=>{
     const rankCls=idx===0?'top1':idx===1?'top2':idx===2?'top3':'';
     const intensity=Math.min(Math.abs(r.drop)/maxAbs,1);
