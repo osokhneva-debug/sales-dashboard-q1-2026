@@ -26,9 +26,14 @@ errors, warnings = [], []
 # months sane and aligned
 if not DATA["months"]: errors.append("DATA.months is empty")
 if not STREAMS["months"]: errors.append("STREAMS.months is empty")
-# hard error since 03.08.2026: a silent mismatch nearly published plan stubs as fact
+# hard error since 03.08.2026: a silent mismatch nearly published plan stubs as fact.
+# ALLOW_PARTIAL=1 downgrades it to a warning — deliberate manual publish of sales data
+# while the streams table lags (Olya's call, first used 05.08.2026). Autonomous runs
+# never set it.
+import os
 if DATA["months"] != STREAMS["months"]:
-    errors.append(f"month sets differ: svod={DATA['months']} vs fakt={STREAMS['months']}")
+    msg = f"month sets differ: svod={DATA['months']} vs fakt={STREAMS['months']}"
+    (warnings if os.environ.get("ALLOW_PARTIAL") == "1" else errors).append(msg)
 
 # cross-source: svod CPA revenue vs fakt Revenue CPA, per month
 for m in DATA["months"]:
