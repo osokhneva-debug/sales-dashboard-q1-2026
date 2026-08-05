@@ -1308,7 +1308,7 @@ function renderKPI(){
     {label:'Общий Ревеню (все потоки)',value:fmtR(totRev),delta:`${SM[SM.length-2]}→${lastM}: ${fmtPct(deltaRev)}`,deltaCls:deltaRev>=0?'up':'down'},
     {label:'Общий GMV',value:fmtR(totGmv),delta:`${MONTHS[MONTHS.length-2]}→${MONTHS[MONTHS.length-1]}: ${fmtPct(deltaGmv)}`,deltaCls:deltaGmv>=0?'up':'down'},
     {label:'Комиссия CPA (ревеню/GMV)',value:(cpaRev/totGmv*100).toFixed(1)+'%',delta:'CPA-ревеню ÷ GMV',deltaCls:''},
-    {label:'Кол-во продаж',value:fmtN(totCnt),delta:`Средний чек: ${fmtR(arpu)}`,deltaCls:''},
+    {label:'Кол-во покупок (платные)',value:fmtN(SM.reduce((s,m)=>s+(STREAMS.purchases[m]||0),0)),delta:`Средний чек: ${fmtR(SM.reduce((s,m)=>s+(STREAMS.gmv[m]||0),0)/Math.max(1,SM.reduce((s,m)=>s+(STREAMS.purchases[m]||0),0)))}`,deltaCls:''},
     {label:'Топ-направление',value:topByPeriod(DATA.directions.rev,1)[0].name,delta:fmtR(topByPeriod(DATA.directions.rev,1)[0].total),deltaCls:''},
     {label:'Топ-профессия',value:topByPeriod(DATA.professions.rev,1)[0].name,delta:fmtR(topByPeriod(DATA.professions.rev,1)[0].total),deltaCls:''},
   ];
