@@ -225,6 +225,7 @@ tbody tr:hover{background:var(--hover)}
 
 <!-- PROFESSIONS -->
 <div class="tab-content" id="professions">
+  <div class="note">ℹ️ Строка = один курс. Курс, размеченный сразу на несколько профессий, показан одной строкой с перечислением через запятую - продажи не двоятся между профессиями.</div>
   <div class="controls">
     <div class="control">
       <label>Показатель</label>
@@ -809,6 +810,10 @@ function rerenderDir(){
 }
 
 // ====== PROFESSIONS ======
+// Строка = один курс. Курс, размеченный на несколько профессий, показывается
+// одной строкой с перечислением через запятую (иначе его продажи двоятся).
+// Для графиков длинную подпись режем, полная остаётся в тултипе и таблице.
+const shortLabel = (s, n=38) => s.length > n ? s.slice(0, n-1) + '…' : s;
 let profMetric='rev', profLineChart, profBarChart;
 function rerenderProf(){
   const dict = DATA.professions[profMetric];
@@ -824,11 +829,11 @@ function rerenderProf(){
     type:'line',
     data:{
       labels:MONTHS,
-      datasets:top10.map((r,i)=>({label:r.name,data:r.byMonth,borderColor:PALETTE[i%PALETTE.length],backgroundColor:PALETTE[i%PALETTE.length]+'22',tension:0.3,borderWidth:2,pointRadius:3}))
+      datasets:top10.map((r,i)=>({label:shortLabel(r.name),fullName:r.name,data:r.byMonth,borderColor:PALETTE[i%PALETTE.length],backgroundColor:PALETTE[i%PALETTE.length]+'22',tension:0.3,borderWidth:2,pointRadius:3}))
     },
     options:{
       responsive:true, maintainAspectRatio:false,
-      plugins:{legend:{position:'bottom',labels:{boxWidth:10,font:{size:10}}},tooltip:{callbacks:{label:c=>`${c.dataset.label}: ${unit==='₽'?fmtR(c.parsed.y):fmtN(c.parsed.y)}`}}},
+      plugins:{legend:{position:'bottom',labels:{boxWidth:10,font:{size:10}}},tooltip:{callbacks:{label:c=>`${c.dataset.fullName||c.dataset.label}: ${unit==='₽'?fmtR(c.parsed.y):fmtN(c.parsed.y)}`}}},
       scales:{x:{grid:{display:false}},y:{ticks:{callback:v=>unit==='₽'?fmtR(v):fmtN(v)}}}
     }
   });
@@ -836,8 +841,8 @@ function rerenderProf(){
   if(profBarChart) profBarChart.destroy();
   profBarChart = new Chart(document.getElementById('chProfBar'),{
     type:'bar',
-    data:{labels:top10.map(r=>r.name),datasets:[{data:top10.map(r=>r.total),backgroundColor:top10.map((_,i)=>PALETTE[i%PALETTE.length]),borderRadius:6}]},
-    options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>`${unit==='₽'?fmtR(c.parsed.x):fmtN(c.parsed.x)}`}}},scales:{x:{ticks:{callback:v=>unit==='₽'?fmtR(v):fmtN(v)}},y:{grid:{display:false}}}}
+    data:{labels:top10.map(r=>shortLabel(r.name)),datasets:[{data:top10.map(r=>r.total),backgroundColor:top10.map((_,i)=>PALETTE[i%PALETTE.length]),borderRadius:6}]},
+    options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{title:c=>top10[c[0].dataIndex].name,label:c=>`${unit==='₽'?fmtR(c.parsed.x):fmtN(c.parsed.x)}`}}},scales:{x:{ticks:{callback:v=>unit==='₽'?fmtR(v):fmtN(v)}},y:{grid:{display:false}}}}
   });
 }
 
