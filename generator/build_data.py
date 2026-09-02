@@ -175,3 +175,14 @@ print("partners:", len(PART), "| directions:", len(DATA['directions']['rev']),
 print("dupes gone:", all(x not in PART for x in CANON))
 print("monthly CPA rev:", {mm: DATA['totals']['rev'][mm] for mm in MONTHS})
 print("last month totals:", {k: DATA['totals'][k][last] for k in DATA['totals']})
+
+# stamp index.html so browsers fetch the fresh data.js instead of a cached copy
+# (the tag had no version, so an updated dashboard could still show old numbers).
+import re as _re, time as _time, os as _os
+_idx = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), "..", "index.html")
+_html = open(_idx, encoding="utf-8").read()
+_stamped = _re.sub(r'<script src="data\.js(?:\?v=\d+)?"></script>',
+                   f'<script src="data.js?v={_time.strftime("%Y%m%d%H%M")}"></script>', _html, count=1)
+if _stamped != _html:
+    open(_idx, "w", encoding="utf-8").write(_stamped)
+    print("STAMPED index.html with data.js version")
