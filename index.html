@@ -59,6 +59,7 @@ td{padding:10px 12px;border-bottom:1px solid var(--border);font-variant-numeric:
 tbody tr{transition:background 0.1s}
 tbody tr:hover{background:var(--hover)}
 .cat-cell{font-weight:600;color:var(--ink);max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#skillTable .cat-cell{max-width:none}  /* названия групп навыков короткие, обрезать нечего */
 .num{text-align:right;font-weight:500}
 .trend-up{color:var(--green);font-weight:700}
 .trend-down{color:var(--red);font-weight:700}
@@ -147,7 +148,7 @@ tbody tr:hover{background:var(--hover)}
     <div class="note">«Покупки» здесь — платные; в «Выручке по CPA» считаются все продажи, включая БП.</div></div>
   <div class="card grid-1"><h3 style="margin:0 0 12px">GMV: профессии vs навыки, помесячно</h3>
     <div class="table-wrap"><table id="tagStatsTable"></table></div>
-    <div class="note">Каждая продажа отнесена либо к профессии, либо к навыку (пересечений нет). «Доля навыков» = навыки ÷ всего GMV — реальная доля без двойного счёта мультитегов из таба «Навыки».</div></div>
+    <div class="note">Каждая продажа отнесена либо к профессии, либо к навыку (пересечений нет). «Доля навыков» = навыки ÷ всего GMV.</div></div>
 </div>
 
 <div class="tab-content" id="insights">
@@ -267,7 +268,7 @@ tbody tr:hover{background:var(--hover)}
 
 <!-- SKILLS -->
 <div class="tab-content" id="skills">
-  <div class="note">⚠️ Строка = один навык. Курс, размеченный на несколько навыков, попадает в каждый из них целиком, поэтому колонка читается как охват навыка, а не как сумма денег. Переход на укрупнённые группы навыков в работе.</div>
+  <div class="note" id="skillNote">Строка = укрупнённая группа навыков. Курс относится ровно к одной группе - той, где у него больше всего навыков, - поэтому колонку можно складывать: это деньги, а не охват.</div>
   <div class="controls">
     <div class="control">
       <label>Показатель</label>
@@ -280,20 +281,20 @@ tbody tr:hover{background:var(--hover)}
       <label>Топ N</label>
       <select id="skillTopN">
         <option value="10">Топ-10</option>
-        <option value="20" selected>Топ-20</option>
+        <option value="20">Топ-20</option>
         <option value="40">Топ-40</option>
         <option value="100">Топ-100</option>
-        <option value="999">Все</option>
+        <option value="999" selected>Все</option>
       </select>
     </div>
     <div class="control search-box">
-      <label>Поиск навыка</label>
-      <input type="text" id="skillSearch" placeholder="Например: Excel, SQL...">
+      <label>Поиск группы</label>
+      <input type="text" id="skillSearch" placeholder="Например: нейросети, бухгалтерия...">
     </div>
   </div>
   <div class="grid-2">
     <div class="card">
-      <h3>Топ навыков — динамика по месяцам</h3>
+      <h3>Группы навыков — динамика по месяцам</h3>
       <div class="chart-wrap tall"><canvas id="chSkillLine"></canvas></div>
     </div>
     <div class="card">
@@ -302,7 +303,7 @@ tbody tr:hover{background:var(--hover)}
     </div>
   </div>
   <div class="card grid-1">
-    <h3 style="display:flex;align-items:center;gap:10px">Таблица навыков <span class="badge">навыки разделены из мультизначных ячеек</span><button class="csv-btn" onclick="downloadCSV('skillTable','навыки.csv')">⬇ Скачать CSV</button></h3>
+    <h3 style="display:flex;align-items:center;gap:10px">Таблица групп навыков <span class="badge">курс попадает ровно в одну группу</span><button class="csv-btn" onclick="downloadCSV('skillTable','группы-навыков.csv')">⬇ Скачать CSV</button></h3>
     <div class="table-wrap"><table id="skillTable"></table></div>
   </div>
 </div>
@@ -455,7 +456,7 @@ tbody tr:hover{background:var(--hover)}
 
 </div>
 
-<script src="data.js?v=202609022054"></script>
+<script src="data.js?v=202609022113"></script>
 <script>
 const MONTHS = DATA.months;
 const fmtR = (v) => (v==null||isNaN(v))?'—':Math.round(v).toLocaleString('ru-RU')+' ₽';
@@ -848,6 +849,15 @@ function rerenderProf(){
 }
 
 // ====== SKILLS ======
+// Подпись про долю выручки, размеченной навыками: считается из данных, а не вбита
+// руками, иначе после каждой пересборки цифра врала бы.
+(function(){
+  const el=document.getElementById('skillNote'); if(!el) return;
+  const m=MONTHS[MONTHS.length-1], d=DATA.skills.rev;
+  const sk=Object.keys(d).reduce((a,k)=>a+(d[k][m]||0),0), tot=DATA.totals.rev[m]||0;
+  if(!tot) return;
+  el.innerHTML += ` Навыками размечен ${(sk/tot*100).toFixed(0)}% CPA-выручки за ${m.toLowerCase()} (${fmtR(sk)} из ${fmtR(tot)}), остальное размечено профессиями.`;
+})();
 let skillMetric='rev', skillLineChart, skillBarChart;
 function rerenderSkill(){
   const dict = DATA.skills[skillMetric];

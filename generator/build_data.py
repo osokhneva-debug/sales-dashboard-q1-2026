@@ -11,9 +11,18 @@ import csv, json
 from collections import defaultdict
 
 SVOD = "svod.csv"          # sales detail: «Сводная всех месяцев»
+GROUPS = "skill_groups.json"  # skill -> enlarged group dictionary (hand-kept)
 FAKT = "fakt.csv"          # revenue streams: «Факт2025-2026»
 INSIGHTS = "insights.json" # monthly conclusions journal (newest first)
 OUT = "../data.js"
+
+# Укрупнённые группы навыков. Порядок ключей в файле = приоритет при равенстве
+# числа навыков, поэтому группа курса не зависит от частот и не прыгает от месяца
+# к месяцу. Пополняется руками по отчёту «в Прочее ушло …» в конце сборки.
+SKILL_GROUPS = json.load(open(GROUPS, encoding="utf-8"))
+SKILL2GROUP = {s: g for g, ss in SKILL_GROUPS.items() for s in ss}
+GROUP_PRIO = {g: i for i, g in enumerate(SKILL_GROUPS)}
+OTHER = "Прочее"
 
 # School name canon (dedupe EN/RU duplicates) — keep in sync with dashboard history
 CANON = {
@@ -59,6 +68,7 @@ dd_part = defaultdict(lambda: defaultdict(lambda: {mm: {"rev": 0.0, "cnt": 0.0} 
 p_month = defaultdict(lambda: {mm: {"rev": 0.0, "cnt": 0.0, "gmv": 0.0} for mm in MONTHS})
 p_dir_m = defaultdict(lambda: defaultdict(lambda: {mm: 0.0 for mm in MONTHS}))
 tag_prof = defaultdict(float); tag_skill = defaultdict(float)   # GMV by tag (mutually exclusive)
+other_rev = defaultdict(float); other_skills = defaultdict(float)  # courses no group covers
 PROF_KEY = {}   # sorted profession set -> display label (keeps the sheet's own order)
 dd_prog_sch = defaultdict(lambda: defaultdict(lambda: defaultdict(float)))  # dir->prog->school->rev
 
@@ -82,11 +92,24 @@ for m, r in recs:
         seen = set(); ordered = [t for t in pts if not (t in seen or seen.add(t))]
         canon = PROF_KEY.setdefault(tuple(sorted(ordered)), ", ".join(ordered))
         prof[canon][m]["rev"] += rev; prof[canon][m]["cnt"] += cnt
-    # Навыки: пока строка = отдельный навык (как было до 02.09.2026). Курс с
-    # несколькими навыками попадает в каждый из них целиком, поэтому колонку
-    # нельзя складывать - это охват, а не деньги. Ждёт перевода на укрупнённые
-    # группы навыков (решение Оли 02.09.2026).
-    for t in toks(cell(r, "Навык")): skill[t][m]["rev"] += rev; skill[t][m]["cnt"] += cnt
+    # Навыки: курс относится ровно к ОДНОЙ укрупнённой группе - той, где у него
+    # больше всего навыков; при равенстве к той, что выше в skill_groups.json.
+    # Начислять каждому навыку отдельно нельзя: курс с 3 навыками попадал в три
+    # строки целиком, и август показывал 13,97 млн руб. охвата вместо 2,51 млн
+    # реальной выручки. Правило Оли от 02.09.2026.
+    sts = toks(cell(r, "Навык"))
+    if sts:
+        hits = defaultdict(int)
+        for t in sts:
+            g = SKILL2GROUP.get(t)
+            if g: hits[g] += 1
+        if hits:
+            grp = min(hits, key=lambda g: (-hits[g], GROUP_PRIO[g]))
+        else:
+            grp = OTHER
+            other_rev[m] += rev
+            for t in sts: other_skills[t] += rev
+        skill[grp][m]["rev"] += rev; skill[grp][m]["cnt"] += cnt
     if d and prog: dd_prog[d][prog][m]["rev"] += rev; dd_prog[d][prog][m]["cnt"] += cnt
     if d and prog and pn: dd_prog_sch[d][prog][pn] += rev
     if d and pn: dd_part[d][pn][m]["rev"] += rev; dd_part[d][pn][m]["cnt"] += cnt
@@ -171,6 +194,16 @@ print("partners:", len(PART), "| directions:", len(DATA['directions']['rev']),
       "| prof:", len(DATA['professions']['rev']), "| skills:", len(DATA['skills']['rev']))
 print("dupes gone:", all(x not in PART for x in CANON))
 print("monthly CPA rev:", {mm: DATA['totals']['rev'][mm] for mm in MONTHS})
+# skill groups: one course = one group, so the column is money and sums up
+_sr = DATA['skills']['rev']
+_sg = {g: round(sum(_sr[g].values()), 2) for g in _sr}
+print(f"skill groups: {len(_sg)} | {last} sum:", round(sum(_sr[g].get(last, 0) for g in _sg), 2))
+for g, v in sorted(_sg.items(), key=lambda x: -x[1]):
+    print(f"   {_sr[g].get(last, 0):12,.0f} {last} | {v:12,.0f} год | {g}")
+_ot = round(sum(other_rev.values()), 2)
+_os_top = sorted(other_skills.items(), key=lambda x: -x[1])[:15]
+print(f"в Прочее ушло {_ot:,.0f} руб., навыки: " +
+      (", ".join(f"{s} ({v:,.0f})" for s, v in _os_top) if _os_top else "нет"))
 print("last month totals:", {k: DATA['totals'][k][last] for k in DATA['totals']})
 
 # stamp index.html so browsers fetch the fresh data.js instead of a cached copy
