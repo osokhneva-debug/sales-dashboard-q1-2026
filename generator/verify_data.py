@@ -23,6 +23,11 @@ TAGSTATS = ex("TAGSTATS"); DRILL = ex("DRILLDOWN"); PART = ex("PARTNERS")
 
 errors, warnings = [], []
 
+try:
+    DRIFT = {d["month"]: d for d in json.load(open("known_drift.json", encoding="utf-8"))}
+except FileNotFoundError:
+    DRIFT = {}
+
 # months sane and aligned
 if not DATA["months"]: errors.append("DATA.months is empty")
 if not STREAMS["months"]: errors.append("STREAMS.months is empty")
@@ -42,7 +47,15 @@ for m in DATA["months"]:
     if b is None:
         warnings.append(f"{m}: no Revenue CPA in fakt.csv"); continue
     if b and abs(a - b) / b > TOL:
-        errors.append(f"{m}: CPA mismatch svod={a:,.0f} vs fakt={b:,.0f} ({(a-b)/b*100:+.1f}%)")
+        msg = f"{m}: CPA mismatch svod={a:,.0f} vs fakt={b:,.0f} ({(a-b)/b*100:+.1f}%)"
+        # known_drift.json — расхождения, разобранные и утверждённые вручную.
+        # Пропускается только если ОБА числа совпали с записанными: сдвинулось
+        # что-то ещё — снова FAIL, а не тихий пропуск.
+        d = DRIFT.get(m)
+        if d and abs(a - d["svod"]) < 1 and abs(b - d["fakt"]) < 1:
+            warnings.append(msg + f" — известное расхождение от {d['logged']}: {d['reason']}")
+        else:
+            errors.append(msg)
 
 # totals non-zero for every month
 for m in DATA["months"]:
