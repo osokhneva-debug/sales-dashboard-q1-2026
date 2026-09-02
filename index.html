@@ -267,7 +267,7 @@ tbody tr:hover{background:var(--hover)}
 
 <!-- SKILLS -->
 <div class="tab-content" id="skills">
-  <div class="note">ℹ️ Строка = один курс. Курс, размеченный сразу на несколько навыков, показан одной строкой с перечислением через запятую - продажи не двоятся между навыками.</div>
+  <div class="note">⚠️ Строка = один навык. Курс, размеченный на несколько навыков, попадает в каждый из них целиком, поэтому колонка читается как охват навыка, а не как сумма денег. Переход на укрупнённые группы навыков в работе.</div>
   <div class="controls">
     <div class="control">
       <label>Показатель</label>
@@ -455,7 +455,7 @@ tbody tr:hover{background:var(--hover)}
 
 </div>
 
-<script src="data.js?v=202609022038"></script>
+<script src="data.js?v=202609022054"></script>
 <script>
 const MONTHS = DATA.months;
 const fmtR = (v) => (v==null||isNaN(v))?'—':Math.round(v).toLocaleString('ru-RU')+' ₽';

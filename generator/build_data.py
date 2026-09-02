@@ -60,7 +60,6 @@ p_month = defaultdict(lambda: {mm: {"rev": 0.0, "cnt": 0.0, "gmv": 0.0} for mm i
 p_dir_m = defaultdict(lambda: defaultdict(lambda: {mm: 0.0 for mm in MONTHS}))
 tag_prof = defaultdict(float); tag_skill = defaultdict(float)   # GMV by tag (mutually exclusive)
 PROF_KEY = {}   # sorted profession set -> display label (keeps the sheet's own order)
-SKILL_KEY = {}  # same for skills
 dd_prog_sch = defaultdict(lambda: defaultdict(lambda: defaultdict(float)))  # dir->prog->school->rev
 
 for m, r in recs:
@@ -83,13 +82,11 @@ for m, r in recs:
         seen = set(); ordered = [t for t in pts if not (t in seen or seen.add(t))]
         canon = PROF_KEY.setdefault(tuple(sorted(ordered)), ", ".join(ordered))
         prof[canon][m]["rev"] += rev; prof[canon][m]["cnt"] += cnt
-    # То же правило для навыков: курс с несколькими навыками идёт одной строкой,
-    # а не начисляется каждому навыку целиком (август 2026: 13,97 млн вместо 2,51).
-    sts = toks(cell(r, "Навык"))
-    if sts:
-        seen = set(); ordered = [t for t in sts if not (t in seen or seen.add(t))]
-        canon = SKILL_KEY.setdefault(tuple(sorted(ordered)), ", ".join(ordered))
-        skill[canon][m]["rev"] += rev; skill[canon][m]["cnt"] += cnt
+    # Навыки: пока строка = отдельный навык (как было до 02.09.2026). Курс с
+    # несколькими навыками попадает в каждый из них целиком, поэтому колонку
+    # нельзя складывать - это охват, а не деньги. Ждёт перевода на укрупнённые
+    # группы навыков (решение Оли 02.09.2026).
+    for t in toks(cell(r, "Навык")): skill[t][m]["rev"] += rev; skill[t][m]["cnt"] += cnt
     if d and prog: dd_prog[d][prog][m]["rev"] += rev; dd_prog[d][prog][m]["cnt"] += cnt
     if d and prog and pn: dd_prog_sch[d][prog][pn] += rev
     if d and pn: dd_part[d][pn][m]["rev"] += rev; dd_part[d][pn][m]["cnt"] += cnt
