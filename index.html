@@ -138,9 +138,10 @@ tbody tr:hover{background:var(--hover)}
 
 <!-- OVERVIEW -->
 <div class="tab-content active" id="streams">
+  <div class="note" style="margin-bottom:12px">Все суммы на этой вкладке - <b>без НДС</b> (деление на 1,22). Для справки внизу один график с НДС.</div>
   <div class="kpi-grid" id="streamsQuarters" style="margin-bottom:16px"></div>
   <div class="kpi-grid" id="streamsKpi" style="margin-bottom:16px"></div>
-  <div class="card grid-1"><h3 style="margin:0 0 12px">Выручка по потокам, помесячно (₽)</h3>
+  <div class="card grid-1"><h3 style="margin:0 0 12px">Выручка по потокам, помесячно, с НДС (для справки)</h3>
     <div style="position:relative;height:360px"><canvas id="chStreamsStack"></canvas></div>
     <div class="note">CPA — партнёрская выручка (ядро) · CPC — оплата за клик · Fix — фикс-размещение · Реклама — платка. Источник: «Факт2025-2026».</div></div>
   <div class="card grid-1"><h3 style="margin:0 0 12px">Потоки × месяцы + накопленный итог</h3>
@@ -1323,7 +1324,7 @@ function renderKPI(){
   const firstGmv=t.gmv[MONTHS[MONTHS.length-2]]||0,lastGmv=t.gmv[MONTHS[MONTHS.length-1]]||0,deltaGmv=firstGmv?(lastGmv-firstGmv)/firstGmv:0;
   const arpu=cpaRev/totCnt;
   const cards=[
-    {label:'Общий Ревеню (все потоки)',value:fmtR(totRev),delta:`${SM[SM.length-2]}→${lastM}: ${fmtPct(deltaRev)}`,deltaCls:deltaRev>=0?'up':'down'},
+    {label:'Общий Ревеню (все потоки), без НДС',value:fmtR(totRev/NDS),delta:`${SM[SM.length-2]}→${lastM}: ${fmtPct(deltaRev)}`,deltaCls:deltaRev>=0?'up':'down'},
     {label:'Общий GMV',value:fmtR(totGmv),delta:`${MONTHS[MONTHS.length-2]}→${MONTHS[MONTHS.length-1]}: ${fmtPct(deltaGmv)}`,deltaCls:deltaGmv>=0?'up':'down'},
     {label:'Комиссия CPA (ревеню/GMV)',value:(cpaRev/totGmv*100).toFixed(1)+'%',delta:'CPA-ревеню ÷ GMV',deltaCls:''},
     {label:'Кол-во покупок (платные)',value:fmtN(SM.reduce((s,m)=>s+(STREAMS.purchases[m]||0),0)),delta:`Средний чек: ${fmtR(SM.reduce((s,m)=>s+(STREAMS.gmv[m]||0),0)/Math.max(1,SM.reduce((s,m)=>s+(STREAMS.purchases[m]||0),0)))}`,deltaCls:''},
@@ -1333,24 +1334,25 @@ function renderKPI(){
   document.getElementById('kpiGrid').innerHTML=cards.map(c=>`<div class="kpi-card"><div class="kpi-label">${c.label}</div><div class="kpi-value">${c.value}</div><div class="kpi-delta ${c.deltaCls}">${c.delta}</div></div>`).join('');
 }
 // ====== STREAMS tab ======
+const NDS=1.22; // отчётность без НДС с 05.10.2026; net = gross/1.22
 const STREAM_DEFS=[['cpa','CPA','#3b82f6'],['cpc','CPC','#10b981'],['fix','Fix','#f59e0b'],['adv','Реклама','#8b5cf6']];
 let stStack;
 function renderStreams(){
   const M=STREAMS.months,lm=M[M.length-1],total=STREAMS.total[lm]||0,grand=M.reduce((s,m)=>s+(STREAMS.total[m]||0),0);
-  const kpis=[{l:'Total EdTech · '+lm,v:total,c:'#0f172a'}].concat(STREAM_DEFS.map(d=>({l:d[1]+' · '+lm,v:STREAMS[d[0]][lm]||0,c:d[2]})));
+  const kpis=[{l:'Total EdTech · '+lm,v:total/NDS,c:'#0f172a'}].concat(STREAM_DEFS.map(d=>({l:d[1]+' · '+lm,v:(STREAMS[d[0]][lm]||0)/NDS,c:d[2]})));
   document.getElementById('streamsKpi').innerHTML=kpis.map(k=>`<div class="kpi-card"><div style="font-size:13px;color:#64748b;margin-bottom:6px">${k.l}</div><div style="font-size:24px;font-weight:700;color:${k.c}">${fmtR(k.v)}</div></div>`).join('');
   const QDEF=[['Q1',['Январь','Февраль','Март']],['Q2',['Апрель','Май','Июнь']],['Q3',['Июль','Август','Сентябрь']],['Q4',['Октябрь','Ноябрь','Декабрь']]];
-  const qv=QDEF.map(([q,ms])=>({q,v:ms.reduce((s,m)=>s+(STREAMS.total[m]||0),0),cnt:ms.filter(m=>M.includes(m)).length})).filter(x=>x.cnt>0);
+  const qv=QDEF.map(([q,ms])=>({q,v:ms.reduce((s,m)=>s+(STREAMS.total[m]||0),0)/NDS,cnt:ms.filter(m=>M.includes(m)).length})).filter(x=>x.cnt>0);
   let qh=qv.map((x,i)=>{const p=(i>0&&x.cnt===3&&qv[i-1].cnt===3)?qv[i-1].v:null;const qoq=(i>0&&x.cnt<3)?'<div style="font-size:12px;margin-top:4px;color:#94a3b8">неполный квартал ('+x.cnt+' мес)</div>':p?`<div style="font-size:12px;margin-top:4px;color:${x.v>=p?'#10b981':'#ef4444'}">${x.v>=p?'▲ +':'▼ '}${((x.v/p-1)*100).toFixed(1)}% к пред. кв.</div>`:'<div style="font-size:12px;margin-top:4px;color:#94a3b8">старт</div>';return `<div class="kpi-card"><div style="font-size:13px;color:#64748b">${x.q}${x.cnt<3?" ("+x.cnt+" мес)":""} · выручка</div><div style="font-size:22px;font-weight:700">${fmtR(x.v)}</div>${qoq}</div>`;}).join('');
-  qh+=`<div class="kpi-card" style="background:#0f172a"><div style="font-size:13px;color:#cbd5e1">Итого выручка (весь период)</div><div style="font-size:22px;font-weight:700;color:#fff">${fmtR(grand)}</div><div style="font-size:12px;margin-top:4px;color:#94a3b8">${M[0]}–${lm}</div></div>`;
+  qh+=`<div class="kpi-card" style="background:#0f172a"><div style="font-size:13px;color:#cbd5e1">Итого выручка (весь период)</div><div style="font-size:22px;font-weight:700;color:#fff">${fmtR(grand/NDS)}</div><div style="font-size:12px;margin-top:4px;color:#94a3b8">${M[0]}–${lm}</div></div>`;
   document.getElementById('streamsQuarters').innerHTML=qh;
   if(stStack)stStack.destroy();
   stStack=new Chart(document.getElementById('chStreamsStack'),{type:'bar',data:{labels:M,datasets:STREAM_DEFS.map(d=>({label:d[1],data:M.map(m=>STREAMS[d[0]][m]||0),backgroundColor:d[2],borderRadius:4,stack:'s'}))},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:true,position:'bottom'},tooltip:{callbacks:{label:c=>`${c.dataset.label}: ${fmtR(c.parsed.y)}`}}},scales:{x:{stacked:true,grid:{display:false}},y:{stacked:true,ticks:{callback:v=>fmtR(v)}}}}});
   const defs=STREAM_DEFS.concat([['total','Total EdTech','#0f172a']]);
-  let h=`<thead><tr><th>Поток</th>${M.map(m=>`<th class="num">${m}</th>`).join('')}<th class="num">Итого ${M.length} мес</th><th class="num">Доля ${lm}</th></tr></thead><tbody>`;
-  defs.forEach(d=>{const val=STREAMS[d[0]][lm]||0,sh=d[0]==='total'?100:(total?val/total*100:0);const rowT=M.reduce((s,m)=>s+(STREAMS[d[0]][m]||0),0);h+=`<tr${d[0]==='total'?' style="border-top:2px solid #cbd5e1;font-weight:700"':''}><td><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:${d[2]};margin-right:8px"></span>${d[1]}</td>${M.map(m=>`<td class="num">${fmtR(STREAMS[d[0]][m]||0)}</td>`).join('')}<td class="num"><strong>${fmtR(rowT)}</strong></td><td class="num">${d[0]==='total'?'100%':sh.toFixed(0)+'%'}</td></tr>`;});
-  let cum=0;const cs=M.map(m=>{cum+=STREAMS.total[m]||0;return cum;});
-  h+=`<tr style="border-top:2px solid #6366f1;color:#4f46e5;font-weight:700"><td>Накопленный итог</td>${cs.map(v=>`<td class="num">${fmtR(v)}</td>`).join('')}<td class="num"><strong>${fmtR(grand)}</strong></td><td class="num">—</td></tr>`;
+  let h=`<thead><tr><th>Поток</th>${M.map(m=>`<th class="num">${m}</th>`).join('')}<th class="num">Итого без НДС,  ${M.length} мес</th><th class="num">Доля ${lm}</th></tr></thead><tbody>`;
+  defs.forEach(d=>{const val=STREAMS[d[0]][lm]||0,sh=d[0]==='total'?100:(total?val/total*100:0);const rowT=M.reduce((s,m)=>s+(STREAMS[d[0]][m]||0),0);h+=`<tr${d[0]==='total'?' style="border-top:2px solid #cbd5e1;font-weight:700"':''}><td><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:${d[2]};margin-right:8px"></span>${d[1]}</td>${M.map(m=>`<td class="num">${fmtR((STREAMS[d[0]][m]||0)/NDS)}</td>`).join('')}<td class="num"><strong>${fmtR(rowT/NDS)}</strong></td><td class="num">${d[0]==='total'?'100%':sh.toFixed(0)+'%'}</td></tr>`;});
+  let cum=0;const cs=M.map(m=>{cum+=(STREAMS.total[m]||0)/NDS;return cum;});
+  h+=`<tr style="border-top:2px solid #6366f1;color:#4f46e5;font-weight:700"><td>Накопленный итог</td>${cs.map(v=>`<td class="num">${fmtR(v)}</td>`).join('')}<td class="num"><strong>${fmtR(grand/NDS)}</strong></td><td class="num">—</td></tr>`;
   document.getElementById('streamsTable').innerHTML=h+`</tbody>`;
 }
 // ====== GMV: professions vs skills (deduped tag stats) ======
